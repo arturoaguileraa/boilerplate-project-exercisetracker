@@ -35,22 +35,22 @@ app.post("/api/users/:id/exercises", async (req, res) => {
     try {
         const currentuser = await User.findById(req.params.id);
         if (currentuser) {
-            try {
-                const newdate = new Date(date);
-            } catch (error) {
-                return res.send(error);
-            }
-            const exerData = {
-                userID: currentuser._id,
+            let exerData = {
+                userID: req.params.id,
                 description,
                 duration,
             };
-            if (newdate.getTime()) {
-                exerData.date = newdate;
+            try {
+                const newdate = new Date(date);
+                if (newdate.getTime()) {
+                    exerData.date = newdate;
+                }
+            } catch (error) {
+                return res.send(error);
             }
             let newexer = new Exercise(exerData);
             newexer = await newexer.save();
-            userUpdated = await User.updateOne(
+            const userUpdated = await User.updateOne(
                 { _id: currentuser._id },
                 {
                     $set: {
@@ -68,7 +68,7 @@ app.post("/api/users/:id/exercises", async (req, res) => {
             );
 
             return res.json({
-                _id: currentuser._id,
+                _id: newexer.userID,
                 username: currentuser.username,
                 date: newexer.date.toDateString(),
                 duration: newexer.duration,
@@ -82,9 +82,35 @@ app.post("/api/users/:id/exercises", async (req, res) => {
 });
 
 app.get("/api/users/:id/logs", async (req, res) => {
+    const { from, to, limit } = req.query;
+    const limitNumber = parseInt(limit);
+    console.log(from, to, limitNumber);
+
     const userID = req.params.id;
-    const currentUser = await User.findById(userID);
-    return res.json(currentUser);
+    let currentUser = await User.findById(userID);
+
+    if (from) {
+        const fromDate = new Date(from);
+        currentUser.log = currentUser.log.filter((elem) => elem.date >= from);
+    }
+
+    if (to) {
+        const toDate = new Date(to);
+        currentUser.log = currentUser.log.filter(
+            (elem) => (elem) => elem.date <= to
+        );
+    }
+
+    if (limit) {
+        currentUser.log = currentUser.log.slice(0, limit);
+    }
+
+    return res.json({
+        id: currentUser.id,
+        username: currentUser.username,
+        count: currentUser.count,
+        log: currentUser.log,
+    });
 });
 
 //Conectamos base de datos
